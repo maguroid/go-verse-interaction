@@ -19,7 +19,8 @@ Replace the values in `.env` with your own values.
 ### 3. Run scripts
 
 ```bash
-make goerli # for goerli testnet
+make goerli/london # interact with goerli with post london upgrade's manner
+make goerli/legacy # interact with goerli with pre london upgrade's manner
 make sand/london # interact with sand-verse with post london upgrade's manner
 make sand/legacy # interact with sand-verse with pre london upgrade's manner
 ```

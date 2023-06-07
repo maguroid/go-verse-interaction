@@ -1,7 +1,10 @@
-.PHONY: goerli sand sand/legacy
-goerli:
+.PHONY: goerli goerli/london goerli/legacy sand/london sand/legacy
+goerli/london:
 	source .env && \
-	go run ./goerli
+	go run ./goerli/london
+goerli/legacy:
+	source .env && \
+	go run ./goerli/legacy
 sand/london:
 	source .env && \
 	go run ./sandverse/london
