@@ -24,3 +24,8 @@ make goerli/legacy # interact with goerli with pre london upgrade's manner
 make sand/london # interact with sand-verse with post london upgrade's manner
 make sand/legacy # interact with sand-verse with pre london upgrade's manner
 ```
+
+### 4. Caveats
+
+- You cannot use the post london upgrade's manner for the verse layer which does not support the EIP-1559.
+- When compiling contracts, you must specify the `--evm-version` as before than `paris`.

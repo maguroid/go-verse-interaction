@@ -102,6 +102,11 @@ func deployContract(ctx context.Context, cli *ethclient.Client, key *ecdsa.Priva
 		return err
 	}
 
+	// addr, tx, _, err := ft.DeployFt(auth, cli)
+	// if err != nil {
+	// 	return err
+	// }
+
 	log.Println("deploying counter contract...")
 	log.Printf("contract address: %s\n", addr.Hex())
 	log.Printf("tx hash: %s\n", tx.Hash().Hex())
