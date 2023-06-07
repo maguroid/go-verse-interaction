@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -36,7 +37,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := deployContract(ctx, cli, key); err != nil {
+	addr, err := deployContract(ctx, cli, key)
+	if err != nil {
+		log.Fatal(err)
+		os.Exit(1)
+	}
+
+	if err := increment(ctx, cli, key, addr); err != nil {
 		log.Fatal(err)
 		os.Exit(1)
 	}
@@ -54,11 +61,6 @@ func sendTransaction(ctx context.Context, cli *ethclient.Client, key *ecdsa.Priv
 	}
 	log.Printf("nonce: %d\n", nonce)
 
-	// gasPrice, err := cli.SuggestGasPrice(ctx)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// => 0
 	gasPrice := big.NewInt(0)
 	log.Printf("gas price: %s\n", gasPrice.String())
 
@@ -89,17 +91,15 @@ func sendTransaction(ctx context.Context, cli *ethclient.Client, key *ecdsa.Priv
 	return nil
 }
 
-func deployContract(ctx context.Context, cli *ethclient.Client, key *ecdsa.PrivateKey) error {
+func deployContract(ctx context.Context, cli *ethclient.Client, key *ecdsa.PrivateKey) (*common.Address, error) {
 	auth, err := bind.NewKeyedTransactorWithChainID(key, chainId)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	auth.GasPrice = big.NewInt(0)
 
 	addr, tx, _, err := counter.DeployCounter(auth, cli)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// addr, tx, _, err := ft.DeployFt(auth, cli)
@@ -114,10 +114,52 @@ func deployContract(ctx context.Context, cli *ethclient.Client, key *ecdsa.Priva
 
 	receipt, err := bind.WaitMined(ctx, cli, tx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	log.Printf("contract deployed at block %d\n", receipt.BlockNumber)
+
+	return &addr, nil
+}
+
+func increment(ctx context.Context, cli *ethclient.Client, key *ecdsa.PrivateKey, contract *common.Address) error {
+	auth, err := bind.NewKeyedTransactorWithChainID(key, chainId)
+	if err != nil {
+		return err
+	}
+
+	c, err := counter.NewCounter(*contract, cli)
+	if err != nil {
+		return err
+	}
+
+	count, err := c.Count(nil)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("current count: %d\n", count)
+
+	tx, err := c.Increment(auth)
+	if err != nil {
+		return err
+	}
+
+	log.Println("incrementing count...")
+
+	receipt, err := bind.WaitMined(ctx, cli, tx)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("tx hash: %s\n", receipt.TxHash.Hex())
+
+	count, err = c.Count(nil)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("current count: %d\n", count)
 
 	return nil
 }
