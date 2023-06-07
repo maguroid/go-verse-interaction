@@ -12,6 +12,11 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
+/**
+ * This script failed to send a transaction with the following error:
+ *
+ * rlp: expected input list for types.txdata
+ */
 func main() {
 	ctx := context.Background()
 
@@ -55,7 +60,8 @@ func main() {
 	log.Printf("fee cap: %s\n", feeCap.String())
 
 	// value to send
-	value := big.NewInt(1000) // in wei (0.000000000000001 eth)
+	// value := big.NewInt(1000) // in wei (0.000000000000001 eth)
+	value := big.NewInt(0) // in wei (0.000000000000001 eth)
 	log.Printf("sending %s wei to my own address\n", value.String())
 
 	// gas limit

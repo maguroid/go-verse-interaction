@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"log"
 	"math/big"
 	"os"
@@ -10,11 +11,15 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/maguroid/go-verse-interaction/lib/counter"
 )
+
+var chainId = big.NewInt(20197)
+var rpcUrl = os.Getenv("SAND_VERSE_RPC_URL")
 
 func main() {
 	ctx := context.Background()
-	cli, err := ethclient.DialContext(ctx, os.Getenv("SAND_VERSE_RPC_URL"))
+	cli, err := ethclient.DialContext(ctx, rpcUrl)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -24,20 +29,28 @@ func main() {
 		log.Fatal(err)
 	}
 
-	chainId := big.NewInt(20197)
 	log.Printf("chain id: %s\n", chainId.String())
 
-	auth, err := bind.NewKeyedTransactorWithChainID(key, chainId)
-	if err != nil {
+	if err := sendTransaction(ctx, cli, key); err != nil {
 		log.Fatal(err)
+		os.Exit(1)
 	}
 
+	if err := deployContract(ctx, cli, key); err != nil {
+		log.Fatal(err)
+		os.Exit(1)
+	}
+}
+
+func sendTransaction(ctx context.Context, cli *ethclient.Client, key *ecdsa.PrivateKey) error {
 	bn, _ := cli.BlockNumber(ctx)
 	log.Printf("block number: %d\n", bn)
 
-	nonce, err := cli.PendingNonceAt(ctx, auth.From)
+	from := crypto.PubkeyToAddress(key.PublicKey)
+
+	nonce, err := cli.PendingNonceAt(ctx, from)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	log.Printf("nonce: %d\n", nonce)
 
@@ -49,26 +62,57 @@ func main() {
 	gasPrice := big.NewInt(0)
 	log.Printf("gas price: %s\n", gasPrice.String())
 
-	value := big.NewInt(1000) // in wei (0.000000000000001 eth)
+	// value := big.NewInt(1000) // in wei (0.000000000000001 eth)
+	value := big.NewInt(0) // in wei (0.000000000000001 eth)
 	log.Printf("sending %s wei to my own address\n", value.String())
 
-	tx := types.NewTransaction(nonce, auth.From, value, 21000, gasPrice, []byte{})
+	tx := types.NewTransaction(nonce, from, value, 21000, gasPrice, []byte{})
 
 	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainId), key)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	if err := cli.SendTransaction(ctx, signedTx); err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	log.Println("waiting for tx to be mined...")
 
 	receipt, err := bind.WaitMined(ctx, cli, signedTx)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	log.Printf("tx hash: %s\n", receipt.TxHash.Hex())
+
+	return nil
+}
+
+func deployContract(ctx context.Context, cli *ethclient.Client, key *ecdsa.PrivateKey) error {
+	auth, err := bind.NewKeyedTransactorWithChainID(key, chainId)
+	if err != nil {
+		return err
+	}
+
+	auth.GasPrice = big.NewInt(0)
+
+	addr, tx, _, err := counter.DeployCounter(auth, cli)
+	if err != nil {
+		return err
+	}
+
+	log.Println("deploying counter contract...")
+	log.Printf("contract address: %s\n", addr.Hex())
+	log.Printf("tx hash: %s\n", tx.Hash().Hex())
+	log.Println("waiting for tx to be mined...")
+
+	receipt, err := bind.WaitMined(ctx, cli, tx)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("contract deployed at block %d\n", receipt.BlockNumber)
+
+	return nil
 }
